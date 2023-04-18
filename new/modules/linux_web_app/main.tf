@@ -1,4 +1,3 @@
-
 resource "azurerm_application_insights" "app_insights" {
   count = var.application_insights_enabled && var.application_insights_id == null ? 1 : 0
 
@@ -14,6 +13,13 @@ resource "azurerm_application_insights" "app_insights" {
   internet_query_enabled     = var.internet_query_enabled
 
   tags = var.tags
+}
+
+resource "azurerm_storage_container" "storcont" {
+  count                 = var.backup_enabled ? 1 : 0
+  name                  = var.storage_container_name == null ? "appservice-backup" : var.storage_container_name
+  storage_account_name  = data.azurerm_storage_account.storeacc.0.name
+  container_access_type = "private"
 }
 
 resource "azurerm_linux_web_app" "app_service_linux" {
@@ -42,6 +48,13 @@ resource "azurerm_linux_web_app" "app_service_linux" {
       use_32_bit_worker        = lookup(site_config.value, "use_32_bit_worker", false)
       websockets_enabled       = lookup(site_config.value, "websockets_enabled", false)
 
+      load_balancing_mode                           = lookup(site_config.value, "load_balancing_mode", null)
+      api_definition_url                            = lookup(site_config.value, "api_definition_url", null)
+      api_management_api_id                         = lookup(site_config.value, "api_management_api_id", null)
+      container_registry_managed_identity_client_id = lookup(site_config.value, "container_registry_managed_identity_client_id", null)
+      container_registry_use_managed_identity       = lookup(site_config.value, "container_registry_use_managed_identity", null)
+      worker_count                                  = lookup(site_config.value, "worker_count", null)
+
       dynamic "ip_restriction" {
         for_each = lookup(site_config.value, "ip_restriction", [])
         content {
@@ -51,6 +64,8 @@ resource "azurerm_linux_web_app" "app_service_linux" {
           priority    = lookup(local.site_config.application_stack, "priority", null)
           service_tag = lookup(local.site_config.application_stack, "service_tag", null)
           headers     = local.ip_restriction_headers
+
+          virtual_network_subnet_id = lookup(local.site_config.application_stack, "virtual_network_subnet_id", null)
         }
       }
       scm_type                    = lookup(site_config.value, "scm_type", null)
@@ -66,6 +81,8 @@ resource "azurerm_linux_web_app" "app_service_linux" {
           priority    = lookup(local.site_config.application_stack, "priority", null)
           service_tag = lookup(local.site_config.application_stack, "service_tag", null)
           headers     = local.scm_ip_restriction_headers
+
+          virtual_network_subnet_id = lookup(local.site_config.application_stack, "virtual_network_subnet_id", null)
         }
       }
 
@@ -73,6 +90,10 @@ resource "azurerm_linux_web_app" "app_service_linux" {
       dynamic "application_stack" {
         for_each = lookup(site_config.value, "application_stack", null) == null ? [] : ["application_stack"]
         content {
+          docker_image     = lookup(local.site_config.application_stack, "docker_image", null)
+          docker_image_tag = lookup(local.site_config.application_stack, "docker_image_tag", null)
+          go_version       = lookup(local.site_config.application_stack, "go_version", null)
+
           dotnet_version      = lookup(local.site_config.application_stack, "dotnet_version", null)
           java_server         = lookup(local.site_config.application_stack, "java_server", null)
           java_server_version = lookup(local.site_config.application_stack, "java_server_version", null)
@@ -135,22 +156,26 @@ resource "azurerm_linux_web_app" "app_service_linux" {
   client_certificate_enabled = var.client_certificate_enabled
   https_only                 = var.https_only
 
-  #verify
-  identity {
-    type = "SystemAssigned"
-  }
-
-  dynamic "backup" {
-    for_each = var.backup_enabled ? ["backup"] : []
+  dynamic "identity" {
+    for_each = var.identity
     content {
-      name                = var.backup_name
-      storage_account_url = var.storage_account_url
+      type         = lookup(identity.value, "type", null)
+      identity_ids = lookup(identity.value, "identity_ids", null)
+    }
+  }
+  key_vault_reference_identity_id = var.key_vault_reference_identity_id
+  dynamic "backup" {
+    for_each = var.backup_enabled ? [{}] : []
+    content {
+      name                = coalesce(var.backup_settings.name, "DefaultBackup")
+      storage_account_url = format("https://${data.azurerm_storage_account.storeacc.0.name}.blob.core.windows.net/${azurerm_storage_container.storcont.0.name}%s", data.azurerm_storage_account_blob_container_sas.main.0.sas)
+      enabled             = var.backup_settings.enabled
 
       schedule {
-        frequency_interval       = var.backup_frequency_interval
-        frequency_unit           = var.backup_frequency_unit
-        retention_period_days    = var.backup_retention_period_in_days
-        keep_at_least_one_backup = var.backup_keep_at_least_one_backup
+        frequency_interval    = var.backup_settings.frequency_interval
+        frequency_unit        = var.backup_settings.frequency_unit
+        retention_period_days = var.backup_settings.retention_period_in_days
+        start_time            = var.backup_settings.start_time
       }
     }
   }
@@ -246,6 +271,13 @@ resource "azurerm_linux_web_app_slot" "app_service_linux_slot" {
       use_32_bit_worker        = lookup(site_config.value, "use_32_bit_worker", false)
       websockets_enabled       = lookup(site_config.value, "websockets_enabled", false)
 
+      load_balancing_mode                           = lookup(site_config.value, "load_balancing_mode", null)
+      api_definition_url                            = lookup(site_config.value, "api_definition_url", null)
+      api_management_api_id                         = lookup(site_config.value, "api_management_api_id", null)
+      container_registry_managed_identity_client_id = lookup(site_config.value, "container_registry_managed_identity_client_id", null)
+      container_registry_use_managed_identity       = lookup(site_config.value, "container_registry_use_managed_identity", null)
+      worker_count                                  = lookup(site_config.value, "worker_count", null)
+
       dynamic "ip_restriction" {
         for_each = lookup(site_config.value, "ip_restriction", [])
         content {
@@ -255,6 +287,8 @@ resource "azurerm_linux_web_app_slot" "app_service_linux_slot" {
           priority    = lookup(local.site_config.application_stack, "priority", null)
           service_tag = lookup(local.site_config.application_stack, "service_tag", null)
           headers     = local.ip_restriction_headers
+
+          virtual_network_subnet_id = lookup(local.site_config.application_stack, "virtual_network_subnet_id", null)
         }
       }
       scm_type                    = lookup(site_config.value, "scm_type", null)
@@ -270,12 +304,18 @@ resource "azurerm_linux_web_app_slot" "app_service_linux_slot" {
           priority    = lookup(local.site_config.application_stack, "priority", null)
           service_tag = lookup(local.site_config.application_stack, "service_tag", null)
           headers     = local.scm_ip_restriction_headers
+
+          virtual_network_subnet_id = lookup(local.site_config.application_stack, "virtual_network_subnet_id", null)
         }
       }
 
       dynamic "application_stack" {
         for_each = lookup(site_config.value, "application_stack", null) == null ? [] : ["application_stack"]
         content {
+          docker_image     = lookup(local.site_config.application_stack, "docker_image", null)
+          docker_image_tag = lookup(local.site_config.application_stack, "docker_image_tag", null)
+          go_version       = lookup(local.site_config.application_stack, "go_version", null)
+
           dotnet_version      = lookup(local.site_config.application_stack, "dotnet_version", null)
           java_server         = lookup(local.site_config.application_stack, "java_server", null)
           java_server_version = lookup(local.site_config.application_stack, "java_server_version", null)
@@ -329,9 +369,14 @@ resource "azurerm_linux_web_app_slot" "app_service_linux_slot" {
   client_affinity_enabled = var.client_affinity_enabled
   https_only              = var.https_only
 
-  identity {
-    type = "SystemAssigned"
+  dynamic "identity" {
+    for_each = var.identity
+    content {
+      type         = lookup(identity.value, "type", null)
+      identity_ids = lookup(identity.value, "identity_ids", null)
+    }
   }
+  key_vault_reference_identity_id = var.key_vault_reference_identity_id
 
   dynamic "storage_account" {
     for_each = var.mount_points

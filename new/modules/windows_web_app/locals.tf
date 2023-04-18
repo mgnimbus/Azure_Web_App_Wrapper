@@ -2,7 +2,6 @@ locals {
   app_service_name  = var.app_service_name
   staging_slot_name = var.staging_slot_name
   app_insights_name = var.application_insights_name
-  backup_name       = var.backup_name
 }
 
 locals {

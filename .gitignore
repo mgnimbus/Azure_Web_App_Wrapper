@@ -5,7 +5,7 @@
 *.tfstate
 *.tfstate.*
 
-*terraform-azurerm-app-service/*
+terraform-azurerm-app-service/*
 
 .terraform.lock.hcl
 # Crash log files

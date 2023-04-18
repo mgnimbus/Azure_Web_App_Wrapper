@@ -5,17 +5,20 @@ variable "tags" {
 }
 
 variable "location" {
-  description = "The location/region to keep all your network resources. To get the list of all locations with table format from azure cli, run 'az account list-locations -o table'"
+  description = "Azure location."
+  type        = string
   default     = ""
 }
 
 variable "resource_group_name" {
   description = "A container that holds related resources for an Azure solution"
+  type        = string
   default     = ""
 }
 
 variable "app_service_plan_name" {
   description = "Specifies the name of the App Service Plan component"
+  type        = string
   default     = ""
 }
 
@@ -59,4 +62,22 @@ variable "staging_slot_enabled" {
   type        = bool
   description = "Create a staging slot alongside the app service for blue/green deployment purposes. See documentation https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/app_service_slot"
   default     = true
+}
+
+variable "application_insights_name" {
+  description = "Name of the Application Insights"
+  type        = string
+  default     = "application_insights"
+}
+
+variable "storage_account_name" {
+  description = "The name of the azure storage account"
+  type        = string
+  default     = ""
+}
+
+variable "storage_container_name" {
+  description = "The name of the storage container to keep backups"
+  type        = string
+  default     = null
 }

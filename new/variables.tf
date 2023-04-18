@@ -205,7 +205,39 @@ variable "client_certificate_enabled" {
   default     = false
 }
 
+variable "identity" {
+  description = "Identity to be assigned to this Linux Web App Slot."
+  type        = any
+  default     = {}
+}
+
+variable "key_vault_reference_identity_id" {
+  description = "User Assigned Identity ID used for accessing KeyVault secrets"
+  type        = string
+  default     = null
+}
+
 # Backup
+
+variable "backup_settings" {
+  description = "Backup settings for App service"
+  type = object({
+    name                     = string
+    enabled                  = bool
+    storage_account_url      = optional(string)
+    frequency_interval       = number
+    frequency_unit           = optional(string)
+    retention_period_in_days = optional(number)
+    start_time               = optional(string)
+  })
+  default = {
+    enabled                  = false
+    name                     = "DefaultBackup"
+    frequency_interval       = 1
+    frequency_unit           = "Day"
+    retention_period_in_days = 1
+  }
+}
 
 variable "backup_enabled" {
   description = "`true` to enable App Service backup"
@@ -213,40 +245,28 @@ variable "backup_enabled" {
   default     = true
 }
 
-variable "backup_name" {
-  description = "Name for backup"
+variable "storage_account_name" {
+  description = "The name of the azure storage account"
   type        = string
-  default     = "DefaultBackup"
+  default     = ""
 }
 
-variable "storage_account_url" {
-  default = " SAS URL to the container"
-  type    = string
-
-}
-
-variable "backup_frequency_interval" {
-  description = "Frequency interval for the App Service backup."
-  type        = number
-  default     = 1
-}
-
-variable "backup_frequency_unit" {
-  description = "Frequency unit for the App Service backup. Possible values are `Day` or `Hour`."
+variable "storage_container_name" {
+  description = "The name of the storage container to keep backups"
   type        = string
-  default     = "Day"
+  default     = null
 }
 
-variable "backup_retention_period_in_days" {
-  description = "Retention in days for the App Service backup."
+variable "password_end_date" {
+  description = "The relative duration or RFC3339 rotation timestamp after which the password expire"
+  type        = string
+  default     = null
+}
+
+variable "password_rotation_in_years" {
+  description = "Number of years to add to the base timestamp to configure the password rotation timestamp. Conflicts with password_end_date and either one is specified and not the both"
   type        = number
-  default     = 30
-}
-
-variable "backup_keep_at_least_one_backup" {
-  description = "Should the service keep at least one backup, regardless of age of backup."
-  type        = bool
-  default     = true
+  default     = 2
 }
 
 variable "mount_points" {
